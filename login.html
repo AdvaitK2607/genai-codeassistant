@@ -1,274 +1,172 @@
-<!DOCTYPE html>
-<html lang="en">
+import os
+import csv
+import traceback
+from io import BytesIO
 
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
+from dotenv import load_dotenv
 
-    <title>GenAI Studio – Actuarial Intelligence</title>
+from PyPDF2 import PdfReader
+import google.generativeai as genai
 
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+# ============================================================
+# LOAD ENVIRONMENT
+# ============================================================
+load_dotenv()
 
-    <!-- Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+DEFAULT_MODEL = "gemini-2.5-flash-preview-09-2025"
 
-    <!-- CSS -->
-    <link rel="stylesheet" href="style.css" />
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+else:
+    genai.configure()
 
-    <!-- Markdown Parser -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-</head>
+# ============================================================
+# FLASK APP SETUP (ONLY ONE APP)
+# ============================================================
+app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
-<body data-theme="light">
+# ============================================================
+# FRONTEND FILE ROUTES (NO templates / static)
+# ============================================================
 
-    <div class="layout">
+@app.route("/")
+def home():
+    return send_from_directory(".", "login.html")
 
-        <!-- ------------- SIDEBAR ------------- -->
-        <aside class="sidebar">
+@app.route("/style.css")
+def css():
+    return send_from_directory(".", "style.css")
 
-            <div class="sidebar-header">
-                <div class="app-icon">
-                    <i class="fa-solid fa-layer-group"></i>
-                </div>
-                <h1 class="app-title">GenAI Studio</h1>
-                <p class="app-subtitle">Actuarial Intelligence</p>
-            </div>
+@app.route("/script.js")
+def js():
+    return send_from_directory(".", "script.js")
 
-            <!-- Sidebar Navigation -->
-            <nav class="sidebar-nav">
+@app.route("/favicon.ico")
+def favicon():
+    return "", 204  # silence browser error
 
-                <!-- Model Settings -->
-                <div class="nav-section">
-                    <h3 class="nav-title">
-                        <i class="fa-solid fa-sliders"></i> Model Settings
-                    </h3>
+# ============================================================
+# HELPER FUNCTIONS
+# ============================================================
 
-                    <label class="nav-label">Select AI Model</label>
-                    <div class="nav-select">
-                        <select id="modelSelect">
-                            <option value="gemini-2.5-flash-preview-09-2025">gemini-2.5-flash-preview-09-2025</option>
-                            <option value="gemini-2.5-flash-lite-preview-09-2025">gemini-2.5-flash-lite-preview-09-2025</option>
-                            <option value="gemini-2.5-flash-image">gemini-2.5-flash-image</option>
-                            <option value="gemini-pro-latest">gemini-pro-latest</option>
-                        </select>
-                    </div>
+def read_pdf(file):
+    try:
+        file.seek(0)
+        reader = PdfReader(file)
+        return "\n".join(
+            p.extract_text() or "" for p in reader.pages[:10]
+        )
+    except Exception as e:
+        return f"[PDF read error: {e}]"
 
-                    <label class="nav-label">Theme</label>
-                    <button id="themeToggle" class="theme-toggle">
-                        <span class="toggle-icon sun"><i class="fa-solid fa-sun"></i></span>
-                        <span class="toggle-icon moon"><i class="fa-solid fa-moon"></i></span>
-                    </button>
-                </div>
+def read_txt(file):
+    try:
+        file.seek(0)
+        raw = file.read()
+        return raw.decode("utf-8", errors="ignore")
+    except Exception as e:
+        return f"[TXT read error: {e}]"
 
-                <!-- Recent Analyses (History fix handled in JS/CSS) -->
-                <div class="nav-section">
-                    <h3 class="nav-title collapsible active">
-                        <i class="fa-solid fa-clock-rotate-left"></i>
-                        Recent Analyses
-                        <i class="fa-solid fa-chevron-down chevron"></i>
-                    </h3>
-                    <div class="collapsible-content active">
-                        <div id="historyList" class="history-list">
-                            <!-- History entries injected here by script.js -->
-                            <div class="no-history">No analyses yet</div>
-                        </div>
-                    </div>
-                </div>
+def read_csv_file(file):
+    try:
+        file.seek(0)
+        text = file.read().decode("utf-8", errors="ignore")
+        rows = list(csv.reader(text.splitlines()))[:60]
+        return "\n".join(", ".join(r) for r in rows)
+    except Exception as e:
+        return f"[CSV read error: {e}]"
 
-                <!-- About -->
-                <div class="nav-section">
-                    <h3 class="nav-title collapsible">
-                        <i class="fa-solid fa-circle-info"></i>
-                        About
-                        <i class="fa-solid fa-chevron-down chevron"></i>
-                    </h3>
-                    <div class="collapsible-content">
-                        <p class="about-text">
-                            GenAI Studio interprets actuarial problems, datasets, and code —
-                            generating simplified explanations, structured solutions, and
-                            complexity analysis.
-                        </p>
-                    </div>
-                </div>
+def process_files(files):
+    data = []
+    for f in files:
+        name = f.filename or "file"
+        buf = BytesIO(f.read())
 
-            </nav>
+        if name.lower().endswith(".pdf"):
+            txt = read_pdf(buf)
+        elif name.lower().endswith(".csv"):
+            txt = read_csv_file(buf)
+        elif name.lower().endswith((".txt", ".log")):
+            txt = read_txt(buf)
+        else:
+            txt = f"[Unsupported file type: {name}]"
 
-            <footer class="sidebar-footer">
-                <div class="profile">
-                    <div class="avatar">
-                        <i class="fa-solid fa-user"></i>
-                    </div>
-                    <div>
-                        <p class="profile-name">Welcome, Analyst</p>
-                        <p class="profile-status">Ready to work</p>
-                    </div>
-                </div>
-            </footer>
+        data.append((name, txt))
+    return data
 
-        </aside>
+def build_prompt(user_prompt, file_context):
+    base = f"""
+You are an expert actuarial analysis assistant.
 
-        <!-- ------------- MAIN CONTENT ------------- -->
-        <main class="main">
+### Explanation
+Explain clearly.
 
-            <!-- Header -->
-            <header class="header">
-                <div>
-                    <h2><i class="fa-solid fa-pen-nib"></i> GenAI Analysis Studio</h2>
-                    <p>Actuarial-first, AI-assisted analysis & code generation.</p>
-                </div>
+### Code
+Provide correct code.
 
-                <div class="header-actions">
-                    <button id="settingsBtn" class="icon-btn" title="Settings">
-                        <i class="fa-solid fa-sliders"></i>
-                    </button>
-                    <button id="notificationsBtn" class="icon-btn" title="Notifications">
-                        <i class="fa-solid fa-bell"></i>
-                    </button>
-                </div>
-            </header>
+### Time & Space Complexity
+Explain complexity.
 
-            <!-- Input Panel (Width fixed in style.css) -->
-            <section class="panel">
+### Suggestions
+Provide improvements.
 
-                <div class="panel-header">
-                    <h3><i class="fa-solid fa-code"></i> Input Panel</h3>
-                    <span id="charCount">0 characters</span>
-                </div>
+USER PROMPT:
+{user_prompt}
+"""
 
-                <div class="templates">
+    if file_context:
+        base += "\n\nFILES:\n"
+        for name, text in file_context:
+            base += f"\n--- {name} ---\n{text[:8000]}\n"
 
-                    <div class="templates-header">
-                        <h4>Quick Templates</h4>
-                        <button id="clearTemplates" class="mini-btn">
-                            <i class="fa-solid fa-xmark"></i> Clear Input
-                        </button>
-                    </div>
+    return base
 
-                    <div class="template-grid">
-                        <div class="template-card" data-template="nsp">
-                            <i class="fa-solid fa-coins"></i> Net Single Premium
-                        </div>
-                        <div class="template-card" data-template="annuity">
-                            <i class="fa-solid fa-dollar-sign"></i> Annuity Value
-                        </div>
-                        <div class="template-card" data-template="mortality">
-                            <i class="fa-solid fa-heartbeat"></i> Mortality Table
-                        </div>
-                        <div class="template-card" data-template="ibnr">
-                            <i class="fa-solid fa-chart-line"></i> IBNR Chain Ladder
-                        </div>
-                    </div>
+# ============================================================
+# API ROUTES
+# ============================================================
 
-                </div>
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok"}), 200
 
-                <!-- Textarea -->
-                <div class="textarea-wrapper">
-                    <textarea id="prompt" placeholder="Describe the actuarial problem, paste dataset, or add code (e.g., 'Write C++ code for binary search')..."></textarea>
+@app.route("/analyze", methods=["POST"])
+def analyze():
+    try:
+        prompt = request.form.get("prompt", "").strip()
+        model_name = request.form.get("model", DEFAULT_MODEL)
 
-                    <div class="textarea-actions">
-                        <button id="formatBtn" class="mini-btn">
-                            <i class="fa-solid fa-wand-magic-sparkles"></i> Format
-                        </button>
-                        <button id="suggestBtn" class="mini-btn">
-                            <i class="fa-solid fa-lightbulb"></i> Suggest
-                        </button>
-                    </div>
-                </div>
+        if not prompt:
+            return jsonify({"error": "Prompt is empty"}), 400
 
-                <!-- File Upload -->
-                <div class="file-upload">
-                    <label for="fileInput" class="file-label">
-                        <i class="fa-solid fa-cloud-arrow-up"></i> Attach Files
-                    </label>
-                    <input id="fileInput" type="file" multiple />
-                    <div id="fileList" class="file-list"></div>
-                </div>
+        files = request.files.getlist("files")
+        file_context = process_files(files)
 
-                <!-- Action Buttons -->
-                <div class="action-buttons">
-                    <button id="evaluateBtn" class="primary-btn">
-                        <i class="fa-solid fa-bolt"></i> Run Analysis
-                    </button>
-                    <button id="clearBtn" class="secondary-btn">
-                        <i class="fa-solid fa-broom"></i> Clear All
-                    </button>
-                </div>
+        final_prompt = build_prompt(prompt, file_context)
 
-            </section>
+        model = genai.GenerativeModel(model_name)
+        response = model.generate_content(final_prompt)
 
-            <!-- Results (Width fixed in style.css) -->
-            <section class="results">
+        output = getattr(response, "text", "").strip()
+        if not output:
+            return jsonify({"error": "Empty response from model"}), 500
 
-                <div class="results-header">
-                    <h3><i class="fa-solid fa-chart-simple"></i> Analysis Results</h3>
+        return jsonify({
+            "content": output,
+            "model_used": model_name
+        })
 
-                    <div>
-                        <button id="exportBtn" class="mini-btn">
-                            <i class="fa-solid fa-download"></i> Export
-                        </button>
-                        <button id="shareBtn" class="mini-btn">
-                            <i class="fa-solid fa-share-nodes"></i> Share
-                        </button>
-                    </div>
-                </div>
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
-                <!-- Indicators (Populated by JS/Backend Metrics) -->
-                <div class="indicators">
-                    <div class="indicator">
-                        <i class="fa-solid fa-code"></i>
-                        <div>
-                            <p class="indicator-label">Code Quality</p>
-                            <p id="qualityScore" class="indicator-value">-</p>
-                        </div>
-                    </div>
+# ============================================================
+# MAIN (RENDER COMPATIBLE)
+# ============================================================
 
-                    <div class="indicator">
-                        <i class="fa-solid fa-clock"></i>
-                        <div>
-                            <p class="indicator-label">Complexity</p>
-                            <p id="complexityScore" class="indicator-value">-</p>
-                        </div>
-                    </div>
-
-                    <div class="indicator">
-                        <i class="fa-solid fa-shield"></i>
-                        <div>
-                            <p class="indicator-label">Security</p>
-                            <p id="securityScore" class="indicator-value">-</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tabs -->
-                <div class="tabs">
-                    <button class="tab active" data-tab="explanation">Explanation</button>
-                    <button class="tab" data-tab="code">Code</button>
-                    <button class="tab" data-tab="complexity">Complexity</button>
-                    <button class="tab" data-tab="suggestions">Suggestions</button>
-                </div>
-
-                <div id="loading" class="loading hidden">
-                    <div class="spinner"></div>
-                    <p>Analyzing…</p>
-                </div>
-
-                <!-- Content Area - Ready for fixed content rendering -->
-                <div id="explanation" class="tab-content active"></div>
-                <pre id="code" class="tab-content"></pre>
-                <div id="complexity" class="tab-content"></div>
-                <div id="suggestions" class="tab-content"></div>
-
-            </section>
-
-            <footer class="footer">
-                <p>© 2025 GenAI Studio — Powered by Gemini</p>
-            </footer>
-
-        </main>
-    </div>
-
-    <!-- JS (Links to script.js) -->
-    <script src="script.js"></script>
-</body>
-</html>
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
