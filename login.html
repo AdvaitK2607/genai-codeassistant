@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>GenAI Studio – Actuarial Intelligence</title>
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="style.css" />
+
+    <!-- Markdown Parser -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+
+<body data-theme="light">
+
+    <div class="layout">
+
+        <!-- ------------- SIDEBAR ------------- -->
+        <aside class="sidebar">
+
+            <div class="sidebar-header">
+                <div class="app-icon">
+                    <i class="fa-solid fa-layer-group"></i>
+                </div>
+                <h1 class="app-title">GenAI Studio</h1>
+                <p class="app-subtitle">Actuarial Intelligence</p>
+            </div>
+
+            <!-- Sidebar Navigation -->
+            <nav class="sidebar-nav">
+
+                <!-- Model Settings -->
+                <div class="nav-section">
+                    <h3 class="nav-title">
+                        <i class="fa-solid fa-sliders"></i> Model Settings
+                    </h3>
+
+                    <label class="nav-label">Select AI Model</label>
+                    <div class="nav-select">
+                        <select id="modelSelect">
+                            <option value="gemini-2.5-flash-preview-09-2025">gemini-2.5-flash-preview-09-2025</option>
+                            <option value="gemini-2.5-flash-lite-preview-09-2025">gemini-2.5-flash-lite-preview-09-2025</option>
+                            <option value="gemini-2.5-flash-image">gemini-2.5-flash-image</option>
+                            <option value="gemini-pro-latest">gemini-pro-latest</option>
+                        </select>
+                    </div>
+
+                    <label class="nav-label">Theme</label>
+                    <button id="themeToggle" class="theme-toggle">
+                        <span class="toggle-icon sun"><i class="fa-solid fa-sun"></i></span>
+                        <span class="toggle-icon moon"><i class="fa-solid fa-moon"></i></span>
+                    </button>
+                </div>
+
+                <!-- Recent Analyses (History fix handled in JS/CSS) -->
+                <div class="nav-section">
+                    <h3 class="nav-title collapsible active">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        Recent Analyses
+                        <i class="fa-solid fa-chevron-down chevron"></i>
+                    </h3>
+                    <div class="collapsible-content active">
+                        <div id="historyList" class="history-list">
+                            <!-- History entries injected here by script.js -->
+                            <div class="no-history">No analyses yet</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- About -->
+                <div class="nav-section">
+                    <h3 class="nav-title collapsible">
+                        <i class="fa-solid fa-circle-info"></i>
+                        About
+                        <i class="fa-solid fa-chevron-down chevron"></i>
+                    </h3>
+                    <div class="collapsible-content">
+                        <p class="about-text">
+                            GenAI Studio interprets actuarial problems, datasets, and code —
+                            generating simplified explanations, structured solutions, and
+                            complexity analysis.
+                        </p>
+                    </div>
+                </div>
+
+            </nav>
+
+            <footer class="sidebar-footer">
+                <div class="profile">
+                    <div class="avatar">
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                    <div>
+                        <p class="profile-name">Welcome, Analyst</p>
+                        <p class="profile-status">Ready to work</p>
+                    </div>
+                </div>
+            </footer>
+
+        </aside>
+
+        <!-- ------------- MAIN CONTENT ------------- -->
+        <main class="main">
+
+            <!-- Header -->
+            <header class="header">
+                <div>
+                    <h2><i class="fa-solid fa-pen-nib"></i> GenAI Analysis Studio</h2>
+                    <p>Actuarial-first, AI-assisted analysis & code generation.</p>
+                </div>
+
+                <div class="header-actions">
+                    <button id="settingsBtn" class="icon-btn" title="Settings">
+                        <i class="fa-solid fa-sliders"></i>
+                    </button>
+                    <button id="notificationsBtn" class="icon-btn" title="Notifications">
+                        <i class="fa-solid fa-bell"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Input Panel (Width fixed in style.css) -->
+            <section class="panel">
+
+                <div class="panel-header">
+                    <h3><i class="fa-solid fa-code"></i> Input Panel</h3>
+                    <span id="charCount">0 characters</span>
+                </div>
+
+                <div class="templates">
+
+                    <div class="templates-header">
+                        <h4>Quick Templates</h4>
+                        <button id="clearTemplates" class="mini-btn">
+                            <i class="fa-solid fa-xmark"></i> Clear Input
+                        </button>
+                    </div>
+
+                    <div class="template-grid">
+                        <div class="template-card" data-template="nsp">
+                            <i class="fa-solid fa-coins"></i> Net Single Premium
+                        </div>
+                        <div class="template-card" data-template="annuity">
+                            <i class="fa-solid fa-dollar-sign"></i> Annuity Value
+                        </div>
+                        <div class="template-card" data-template="mortality">
+                            <i class="fa-solid fa-heartbeat"></i> Mortality Table
+                        </div>
+                        <div class="template-card" data-template="ibnr">
+                            <i class="fa-solid fa-chart-line"></i> IBNR Chain Ladder
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Textarea -->
+                <div class="textarea-wrapper">
+                    <textarea id="prompt" placeholder="Describe the actuarial problem, paste dataset, or add code (e.g., 'Write C++ code for binary search')..."></textarea>
+
+                    <div class="textarea-actions">
+                        <button id="formatBtn" class="mini-btn">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Format
+                        </button>
+                        <button id="suggestBtn" class="mini-btn">
+                            <i class="fa-solid fa-lightbulb"></i> Suggest
+                        </button>
+                    </div>
+                </div>
+
+                <!-- File Upload -->
+                <div class="file-upload">
+                    <label for="fileInput" class="file-label">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Attach Files
+                    </label>
+                    <input id="fileInput" type="file" multiple />
+                    <div id="fileList" class="file-list"></div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button id="evaluateBtn" class="primary-btn">
+                        <i class="fa-solid fa-bolt"></i> Run Analysis
+                    </button>
+                    <button id="clearBtn" class="secondary-btn">
+                        <i class="fa-solid fa-broom"></i> Clear All
+                    </button>
+                </div>
+
+            </section>
+
+            <!-- Results (Width fixed in style.css) -->
+            <section class="results">
+
+                <div class="results-header">
+                    <h3><i class="fa-solid fa-chart-simple"></i> Analysis Results</h3>
+
+                    <div>
+                        <button id="exportBtn" class="mini-btn">
+                            <i class="fa-solid fa-download"></i> Export
+                        </button>
+                        <button id="shareBtn" class="mini-btn">
+                            <i class="fa-solid fa-share-nodes"></i> Share
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Indicators (Populated by JS/Backend Metrics) -->
+                <div class="indicators">
+                    <div class="indicator">
+                        <i class="fa-solid fa-code"></i>
+                        <div>
+                            <p class="indicator-label">Code Quality</p>
+                            <p id="qualityScore" class="indicator-value">-</p>
+                        </div>
+                    </div>
+
+                    <div class="indicator">
+                        <i class="fa-solid fa-clock"></i>
+                        <div>
+                            <p class="indicator-label">Complexity</p>
+                            <p id="complexityScore" class="indicator-value">-</p>
+                        </div>
+                    </div>
+
+                    <div class="indicator">
+                        <i class="fa-solid fa-shield"></i>
+                        <div>
+                            <p class="indicator-label">Security</p>
+                            <p id="securityScore" class="indicator-value">-</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabs -->
+                <div class="tabs">
+                    <button class="tab active" data-tab="explanation">Explanation</button>
+                    <button class="tab" data-tab="code">Code</button>
+                    <button class="tab" data-tab="complexity">Complexity</button>
+                    <button class="tab" data-tab="suggestions">Suggestions</button>
+                </div>
+
+                <div id="loading" class="loading hidden">
+                    <div class="spinner"></div>
+                    <p>Analyzing…</p>
+                </div>
+
+                <!-- Content Area - Ready for fixed content rendering -->
+                <div id="explanation" class="tab-content active"></div>
+                <pre id="code" class="tab-content"></pre>
+                <div id="complexity" class="tab-content"></div>
+                <div id="suggestions" class="tab-content"></div>
+
+            </section>
+
+            <footer class="footer">
+                <p>© 2025 GenAI Studio — Powered by Gemini</p>
+            </footer>
+
+        </main>
+    </div>
+
+    <!-- JS (Links to script.js) -->
+    <script src="script.js"></script>
+</body>
+</html>
