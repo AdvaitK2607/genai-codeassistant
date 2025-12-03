@@ -241,3 +241,25 @@ if __name__ == "__main__":
     import os
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
+
+from flask import Flask, send_from_directory
+
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return send_from_directory(".", "login.html")
+
+@app.route("/style.css")
+def css():
+    return send_from_directory(".", "style.css")
+
+@app.route("/script.js")
+def js():
+    return send_from_directory(".", "script.js")
+
+if __name__ == "__main__":
+    import os
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
